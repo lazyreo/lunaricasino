@@ -22,4 +22,6 @@ docker build -t lunariscasino .
 docker run --env-file .env lunariscasino
 ```
 
+The image is multi-stage: `builder` installs dependencies (including `tgcrypto`), `runtime` ships only the venv and app code.
+
 Configured messages: `t.me/c/4215169273/{5,7,8,9,10,12,13,14,15}` → chat `-1004215169273`.
