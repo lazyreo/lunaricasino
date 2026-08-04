@@ -3,7 +3,7 @@
 from pathlib import Path
 
 
-PACKAGE_ROOTS = ("app", "service", "schemas", "utils", "logger", "tests")
+PACKAGE_ROOTS = ("app", "service", "schemas", "utils", "logger", "repository", "tests")
 
 
 def ensure_init_files() -> None:

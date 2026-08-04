@@ -32,6 +32,18 @@ class Settings(BaseSettings):
         default=4.0,
         description="Hours to wait between consecutive message forwards",
     )
+    mongo_uri: str = Field(
+        default="mongodb://localhost:27017",
+        description="MongoDB connection URI",
+    )
+    mongo_db: str = Field(
+        default="lunariscasino",
+        description="MongoDB database name",
+    )
+    mongo_schedule_collection: str = Field(
+        default="forward_schedule",
+        description="Collection used to track the next message to copy",
+    )
     workdir: str = Field(
         default="data",
         description="Directory for Pyrogram session files",

@@ -1,77 +1,90 @@
-"""Service that forwards configured Telegram messages as-is."""
+"""Service that copies configured Telegram messages on a Mongo-backed schedule."""
 
 import asyncio
+from datetime import datetime, timezone
 
 from app.config import settings
 from app.exceptions import ForwardError
 from app.integrations.pyrogram_client import pyrogram_client
 from logger.loguru import logger
+from repository.schedule import schedule_repository
 from schemas.forward import ForwardJob
+from schemas.schedule import ForwardSchedule
 
 
 class ForwardService:
-    """Forward a fixed message set with a delay between each item."""
+    """Copy a fixed message set, resuming from MongoDB schedule state."""
 
     async def forward_message(self, job: ForwardJob) -> None:
-        """Forward one message into the same chat without rewriting content."""
+        """Copy one message into the same chat without a forward tag."""
         client = pyrogram_client.client
         logger.bind(
             chat_id=job.chat_id,
             message_id=job.message_id,
             index=job.index,
             total=job.total,
-        ).info("Forwarding message as-is")
+        ).info("Copying message as-is without forward tag")
         try:
-            await client.forward_messages(
+            await client.copy_message(
                 chat_id=job.chat_id,
                 from_chat_id=job.chat_id,
-                message_ids=job.message_id,
+                message_id=job.message_id,
             )
         except Exception as exc:
             logger.bind(
                 chat_id=job.chat_id,
                 message_id=job.message_id,
                 error=str(exc),
-            ).error("Failed to forward message")
+            ).error("Failed to copy message")
             raise ForwardError(
-                f"Failed to forward message {job.message_id} in chat {job.chat_id}"
+                f"Failed to copy message {job.message_id} in chat {job.chat_id}"
             ) from exc
         logger.bind(
             chat_id=job.chat_id,
             message_id=job.message_id,
             index=job.index,
             total=job.total,
-        ).info("Message forwarded successfully")
+        ).info("Message copied successfully")
 
-    async def run_daily_sequence(self) -> None:
-        """Forward all configured messages with the configured gap between each."""
-        message_ids = list(settings.message_ids)
-        total = len(message_ids)
-        delay_seconds = settings.delay_hours * 3600
+    async def _sleep_until(self, next_at: datetime) -> None:
+        """Sleep until the schedule due time when it is still in the future."""
+        due_at = next_at
+        if due_at.tzinfo is None:
+            due_at = due_at.replace(tzinfo=timezone.utc)
+        else:
+            due_at = due_at.astimezone(timezone.utc)
+
+        now = datetime.now(timezone.utc)
+        delay_seconds = (due_at - now).total_seconds()
+        if delay_seconds <= 0:
+            logger.bind(next_at=due_at.isoformat()).info("Schedule is due; sending now")
+            return
+
         logger.bind(
-            chat_id=settings.chat_id,
-            message_count=total,
-            delay_hours=settings.delay_hours,
-        ).info("Starting daily forward sequence")
+            sleep_seconds=delay_seconds,
+            next_at=due_at.isoformat(),
+        ).info("Waiting until next scheduled message")
+        await asyncio.sleep(delay_seconds)
 
-        for index, message_id in enumerate(message_ids):
-            job = ForwardJob(
-                chat_id=settings.chat_id,
-                message_id=message_id,
-                index=index,
-                total=total,
-            )
-            await self.forward_message(job)
-            if index < total - 1:
-                logger.bind(
-                    sleep_hours=settings.delay_hours,
-                    next_message_id=message_ids[index + 1],
-                ).info("Waiting before next forward")
-                await asyncio.sleep(delay_seconds)
-
-        logger.bind(chat_id=settings.chat_id, message_count=total).info(
-            "Daily forward sequence completed"
+    async def process_next(self, schedule: ForwardSchedule) -> ForwardSchedule:
+        """Wait for the due time, copy the due message, then advance the schedule."""
+        await self._sleep_until(schedule.next_at)
+        total = len(settings.message_ids)
+        job = ForwardJob(
+            chat_id=schedule.chat_id,
+            message_id=schedule.next_message_id,
+            index=schedule.next_index,
+            total=total,
         )
+        await self.forward_message(job)
+        return await schedule_repository.advance_after_send(schedule)
+
+    async def run_loop(self) -> None:
+        """Load Mongo schedule state and process messages forever."""
+        logger.bind(chat_id=settings.chat_id).info("Starting Mongo-backed forward loop")
+        while True:
+            schedule = await schedule_repository.get_or_create()
+            await self.process_next(schedule)
 
 
 forward_service = ForwardService()

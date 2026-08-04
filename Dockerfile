@@ -16,6 +16,7 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 COPY service ./service
 COPY schemas ./schemas
+COPY repository ./repository
 COPY utils ./utils
 COPY logger ./logger
 COPY main.py init.py ./
@@ -40,6 +41,7 @@ COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --from=builder --chown=appuser:appuser /app/app /app/app
 COPY --from=builder --chown=appuser:appuser /app/service /app/service
 COPY --from=builder --chown=appuser:appuser /app/schemas /app/schemas
+COPY --from=builder --chown=appuser:appuser /app/repository /app/repository
 COPY --from=builder --chown=appuser:appuser /app/utils /app/utils
 COPY --from=builder --chown=appuser:appuser /app/logger /app/logger
 COPY --from=builder --chown=appuser:appuser /app/main.py /app/main.py
