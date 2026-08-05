@@ -14,7 +14,7 @@ from service.forward import ForwardService
 
 @pytest.mark.asyncio
 async def test_forward_message_calls_pyrogram_copy(monkeypatch) -> None:
-    """Ensure copy_message is used so posts have no forward tag."""
+    """Ensure copy_message copies from source chat into destination chat."""
     client = MagicMock()
     client.copy_message = AsyncMock(return_value=None)
     holder = SimpleNamespace(client=client)
@@ -24,11 +24,17 @@ async def test_forward_message_calls_pyrogram_copy(monkeypatch) -> None:
     )
 
     service = ForwardService()
-    job = ForwardJob(chat_id=-1004215169273, message_id=5, index=0, total=1)
+    job = ForwardJob(
+        source_chat_id=-1004215169273,
+        destination_chat_id=-1003690377297,
+        message_id=5,
+        index=0,
+        total=1,
+    )
     await service.forward_message(job)
 
     client.copy_message.assert_awaited_once_with(
-        chat_id=-1004215169273,
+        chat_id=-1003690377297,
         from_chat_id=-1004215169273,
         message_id=5,
     )
@@ -46,7 +52,13 @@ async def test_forward_message_wraps_errors(monkeypatch) -> None:
     )
 
     service = ForwardService()
-    job = ForwardJob(chat_id=-1004215169273, message_id=5, index=0, total=1)
+    job = ForwardJob(
+        source_chat_id=-1004215169273,
+        destination_chat_id=-1003690377297,
+        message_id=5,
+        index=0,
+        total=1,
+    )
     with pytest.raises(ForwardError):
         await service.forward_message(job)
 
@@ -81,16 +93,16 @@ async def test_sleep_until_waits_for_future_due_time(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_next_copies_then_advances(monkeypatch) -> None:
-    """Ensure process_next copies the due message and advances Mongo schedule."""
+async def test_process_next_copies_to_all_destinations(monkeypatch) -> None:
+    """Ensure process_next copies the due message to every destination chat."""
     service = ForwardService()
-    forwarded: list[int] = []
+    forwarded: list[ForwardJob] = []
 
     async def fake_sleep_until(_next_at: datetime) -> None:
         return None
 
     async def fake_forward(job: ForwardJob) -> None:
-        forwarded.append(job.message_id)
+        forwarded.append(job)
 
     advanced = ForwardSchedule(
         chat_id=-1004215169273,
@@ -106,7 +118,11 @@ async def test_process_next_copies_then_advances(monkeypatch) -> None:
     monkeypatch.setattr("service.forward.schedule_repository.advance_after_send", advance)
     monkeypatch.setattr(
         "service.forward.settings",
-        SimpleNamespace(message_ids=[5, 7, 8]),
+        SimpleNamespace(
+            message_ids=[5, 7, 8],
+            chat_id=-1004215169273,
+            destination_chat_ids=[-1004215169273, -1003690377297],
+        ),
     )
 
     current = ForwardSchedule(
@@ -118,6 +134,11 @@ async def test_process_next_copies_then_advances(monkeypatch) -> None:
     )
     result = await service.process_next(current)
 
-    assert forwarded == [5]
+    assert [job.destination_chat_id for job in forwarded] == [
+        -1004215169273,
+        -1003690377297,
+    ]
+    assert all(job.message_id == 5 for job in forwarded)
+    assert all(job.source_chat_id == -1004215169273 for job in forwarded)
     advance.assert_awaited_once_with(current)
     assert result.next_message_id == 7

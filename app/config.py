@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     )
     chat_id: int = Field(
         default=-1004215169273,
-        description="Source and destination chat/channel ID",
+        description="Source chat/channel ID containing the original messages",
+    )
+    destination_chat_ids: list[int] = Field(
+        default_factory=lambda: [-1004215169273, -1003690377297],
+        description="Destination chat/channel IDs to copy each message into",
     )
     message_ids: list[int] = Field(
         default_factory=lambda: [5, 7, 8, 9, 10, 12, 13, 14, 15],
