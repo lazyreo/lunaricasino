@@ -34,6 +34,4 @@ COPY --from=builder --chown=appuser:appuser /app /app
 
 USER appuser
 
-VOLUME ["/app/data"]
-
 CMD ["python", "main.py"]
