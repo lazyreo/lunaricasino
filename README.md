@@ -24,7 +24,8 @@ docker run --env-file .env lunariscasino
 
 Mongo document (`forward_schedule`) stores `next_message_id`, `next_index`, and `next_at`.
 On first boot the bot skips copying and schedules the first message after `DELAY_HOURS`
-(default 4). After each successful copy, the schedule advances by another `DELAY_HOURS`.
+(default 12 → 2 posts/day). After each successful copy, the schedule advances by another
+`DELAY_HOURS`.
 
 Configured messages: `t.me/c/4215169273/{5,7,8,9,10,12,13,14,15}` are copied into both
 `-1004215169273` and `-1003690377297`.

@@ -33,8 +33,8 @@ class Settings(BaseSettings):
         description="Message IDs to forward in order, as-is",
     )
     delay_hours: float = Field(
-        default=4.0,
-        description="Hours to wait between consecutive message forwards",
+        default=12.0,
+        description="Hours to wait between consecutive message forwards (12 = 2/day)",
     )
     mongo_uri: str = Field(
         default="mongodb://localhost:27017",
