@@ -1,6 +1,6 @@
 """Pyrogram Telegram client integration."""
 
-from pyrogram import Client
+from pyrogram.client import Client
 
 from app.config import settings
 from app.exceptions import ClientNotStartedError

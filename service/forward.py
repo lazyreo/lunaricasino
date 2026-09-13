@@ -30,6 +30,7 @@ class ForwardService:
                 chat_id=job.destination_chat_id,
                 from_chat_id=job.source_chat_id,
                 message_id=job.message_id,
+                # message_thread_id=1
             )
         except Exception as exc:
             logger.bind(
