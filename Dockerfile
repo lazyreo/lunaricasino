@@ -4,7 +4,7 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=automatic
+    UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN apt-get update \
 COPY . .
 
 RUN uv sync --no-dev --extra speedups \
-    && /app/.venv/bin/python init.py
+    && uv run init.py
 
 
 FROM python:3.12-slim AS runtime
@@ -34,4 +34,4 @@ COPY --from=builder --chown=appuser:appuser /app /app
 
 USER appuser
 
-CMD ["/app/.venv/bin/python", "main.py"]
+CMD ["python", "main.py"]
