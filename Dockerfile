@@ -15,7 +15,7 @@ RUN apt-get update \
 COPY . .
 
 RUN uv sync --no-dev --extra speedups \
-    && uv run init.py
+    && /app/.venv/bin/python init.py
 
 
 FROM python:3.12-slim AS runtime
@@ -34,4 +34,4 @@ COPY --from=builder --chown=appuser:appuser /app /app
 
 USER appuser
 
-CMD ["python", "main.py"]
+CMD ["/app/.venv/bin/python", "main.py"]
